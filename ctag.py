@@ -172,7 +172,8 @@ def parseFile(srcFileHandle, cTags, outStream):
 
 	"""
 
-	outStream.write("File: {0}\n".format(srcFileHandle.name))
+	# strip away directory from file name if it exists
+	srcFileName = srcFileHandle.name.rsplit("/", 1)[1]
 
 	lineNum = 0
 	lineIter = (l.strip() for l in srcFileHandle)
@@ -187,9 +188,12 @@ def parseFile(srcFileHandle, cTags, outStream):
 		# line contains a comment; output to the given stream if it is also tagged
 		if idx > -1:
 			line = line[max(idx_list):]
-			map(outStream.write, ["[line:{0}] {1}\n".format(lineNum, line) for tag in cTags if tag in line])
+			map(outStream.write, ["[{0}|line:{1}] {2}\n".format(srcFileName, lineNum, line) for tag in cTags if tag in line])
 
-	outStream.write("\n")
+	# if position in stream is greater than 0, output was written, so insert newline as separator
+	if srcFileHandle.tell() > 0:
+		outStream.write("\n")
+
 	srcFileHandle.close()
 
 
