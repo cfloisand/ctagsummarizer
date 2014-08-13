@@ -173,7 +173,7 @@ def parseFile(srcFileHandle, cTags, outStream):
 	"""
 
 	# strip away directory from file name if it exists
-	srcFileName = srcFileHandle.name.rsplit("/", 1)[1]
+	srcFileName = srcFileHandle.name.rsplit("/", 1)[-1]
 
 	# save current position in source file so it can be compared to the position at the end of the function and 
 	# determine whether output was written to the stream
