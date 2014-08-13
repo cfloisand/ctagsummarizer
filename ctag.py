@@ -175,8 +175,12 @@ def parseFile(srcFileHandle, cTags, outStream):
 	# strip away directory from file name if it exists
 	srcFileName = srcFileHandle.name.rsplit("/", 1)[1]
 
+	# save current position in source file so it can be compared to the position at the end of the function and 
+	# determine whether output was written to the stream
+	startFilePos = outStream.tell()
 	lineNum = 0
 	lineIter = (l.strip() for l in srcFileHandle)
+
 	for line in lineIter:
 		lineNum += 1
 
@@ -190,8 +194,9 @@ def parseFile(srcFileHandle, cTags, outStream):
 			line = line[max(idx_list):]
 			map(outStream.write, ["[{0}|line:{1}] {2}\n".format(srcFileName, lineNum, line) for tag in cTags if tag in line])
 
-	# if position in stream is greater than 0, output was written, so insert newline as separator
-	if srcFileHandle.tell() > 0:
+	# flush the output stream to make sure current position is updated
+	outStream.flush()
+	if outStream.tell() > startFilePos:
 		outStream.write("\n")
 
 	srcFileHandle.close()
