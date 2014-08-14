@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/python
 
 #
 # Comment Tag Summarizer
@@ -167,7 +167,7 @@ def openSourceFile(fileName):
 	return srcFileHandle
 
 
-def parseFile(srcFileHandle, cTags, outStream):
+def parseFile(srcFileHandle, cTags):
 	"""Parses the given file for comments identified by the given tags and writes them out to the specified stream.
 
 	"""
@@ -175,10 +175,8 @@ def parseFile(srcFileHandle, cTags, outStream):
 	# strip away directory from file name if it exists
 	srcFileName = srcFileHandle.name.rsplit("/", 1)[-1]
 
-	# save current position in source file so it can be compared to the position at the end of the function and 
-	# determine whether output was written to the stream
-	startFilePos = outStream.tell()
 	lineNum = 0
+	linesWritten = 0
 	lineIter = (l.strip() for l in srcFileHandle)
 
 	for line in lineIter:
@@ -191,13 +189,15 @@ def parseFile(srcFileHandle, cTags, outStream):
 
 		# line contains a comment; output to the given stream if it is also tagged
 		if idx > -1:
-			line = line[max(idx_list):]
-			map(outStream.write, ["[{0}|line:{1}] {2}\n".format(srcFileName, lineNum, line) for tag in cTags if tag in line])
+			line = line[idx:]
+			tagsIter = (tag for tag in cTags if tag in line)
+			for t in tagsIter:
+				sys.stdout.write("[{0}|line:{1}] {2}\n".format(srcFileName, lineNum, line))
+				linesWritten += 1
 
-	# flush the output stream to make sure current position is updated
-	outStream.flush()
-	if outStream.tell() > startFilePos:
-		outStream.write("\n")
+	sys.stdout.flush()
+	if linesWritten > 0:
+		sys.stdout.write("\n")
 
 	srcFileHandle.close()
 
@@ -212,21 +212,20 @@ if __name__ == "__main__":
 		printErrorAndExit("Unknonwn or invalid arguments.")
 
 	commentTags = getCommentTags()
-	outMode = getOutputMode()
-	outputFileHandle = getOutputFileHandle(outMode)
-	sourceFiles = getSourcePathFiles(outMode)
+	outputMode = getOutputMode()
+	outputFileHandle = getOutputFileHandle(outputMode)
+	sourceFiles = getSourcePathFiles(outputMode)
 
-	if outMode == 1:
-		outputStream = outputFileHandle
-	else:
-		outputStream = sys.stdout
+	if outputMode == 1:
+		sys.stdout = outputFileHandle
 	
-	print "ctag.py: Parsing with tags {0}, with output to {1}...\n".format(commentTags, outputStream.name)
+	sys.__stdout__.write("ctag.py: Parsing with tags {0}, with output to {1}...\n\n".format(commentTags, sys.stdout.name))
 
 	for srcFile in sourceFiles:
-		parseFile(openSourceFile(srcFile), commentTags, outputStream)
+		parseFile(openSourceFile(srcFile), commentTags)
 
 	if not outputFileHandle == None:
 		outputFileHandle.close()
+		sys.stdout = sys.__stdout__
 
 	print "ctag.py: Done.\n"
