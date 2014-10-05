@@ -18,5 +18,13 @@ int main(int argc, const char **argv)
 
 	// TODO: Clear away some space...
 
+	// Here is a block of code that is not tagged, preceding the tagged comment.
+	// The code below accumulates by 1 until it reaches 10000.
+	// TODO: This block of code is useless.
+	int acc = 0;
+	while (acc < 10000) {
+		acc++;
+	}
+
 	return 0;
 }
