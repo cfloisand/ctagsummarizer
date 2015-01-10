@@ -10,11 +10,12 @@ int main(int argc, const char **argv)
 	// Not a tagged comment.
 	std::cout << "Tagged comment after the line."; /* FIXME: Needs a newline. */
 
-	// FIXME: This loop never runs.
+	// FIXME: This loop never runs. //
 	while (0) {
 		std::cout << "This will never be seen.\n";
 	}
 
+	//TODO: Add space between slashes and tag.
 
 	// TODO: Clear away some space...
 
@@ -25,6 +26,10 @@ int main(int argc, const char **argv)
 	while (acc < 10000) {
 		acc++;
 	}
+
+	/*
+	TODO: Keep testing! (I'm in a block).
+	 */
 
 	return 0;
 }

@@ -6,29 +6,40 @@
 # Author:	Christian Floisand
 # Version:  1.0
 # Created:  2014/08/12
-# Modified: 2014/08/13
+# Modified: 2015/01/10
 #
-# Parses source files for comments tagged with TODO and/or FIXME and either displays the comments in the console or creates a file listing them all 
-# for easy reference. Though most IDEs will highlight these tags or include them in a file's section summary or table of contents (e.g. Xcode), 
-# this script consolidates all of these tagged comments together in one place that can easily be referred to so they are not forgotten or overlooked. 
-# Moreover, the script can be included in build phases so that the file containing all of the tagged comments stays updated every time a new build is made.
+# Parses source files for comments tagged with TODO and/or FIXME and displays the comments in the console 
+# and/or creates a file listing them all for easy reference. Though most IDEs will highlight these tags or include 
+# them in a file's section summary or table of contents (e.g. Xcode), this script consolidates all of these 
+# tagged comments together in one place that can easily be referred to so they are not forgotten or overlooked. 
+# Moreover, the script can be included in build phases so that the file containing all of the tagged comments 
+# stays updated every time a new build is made.
 #
 # At this time, only the line containing the TODO or FIXME tag will be logged.
 #
 # LICENSE
 # Copyright (C) 2014 Christian Floisand
 #
-# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software 
-# Foundation, either version 3 of the License, or (at your option) any later version.
+# This program is free software: you can redistribute it and/or modify it under the terms of the GNU General 
+# Public License as published by the Free Software Foundation, either version 3 of the License, or (at your 
+# option) any later version.
 #
-# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
-# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+# This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the 
+# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License 
+# for more details.
 #
 # You should have received a copy of the GNU General Public License along with this program.
 # If not, see http://www.gnu.org/licenses/.
 #
 
 import os, sys, string
+
+## Globals
+gFileExtensions = [".h", ".hpp", ".c", ".cpp", ".cc", ".cpp", ".m", ".mm", ".cs", ".py", ".lua", ".js"]
+gCommentTags = ["TODO", "FIXME"]
+gCommentOpeners = ["//", "/*", "#", "'''", '"""', "--", "--[["]
+gCommentClosers = ["//", "*/", "#", "'''", '"""', "--", "]]"]
+gCommentChars = '/*#"-[]\''
 
 
 def printUsage():
@@ -37,8 +48,8 @@ def printUsage():
 	"""
 
 	print "\n====Comment Tag Summarizer, Version 1.0===="
-	print "Searches a source file for comments identified by a given set of tags and either displays them"
-	print "in the console or writes them to a specified file.\n"
+	print "Searches source files for comments identified by TODO or FIXME tags and displays them"
+	print "in the console and/or writes them to a specified file.\n"
 	print "usage: ctag.py -tags=<tags...> [-console | -file=<filename>] path"
 	print "\t-tags\n\t\tA comma-separated list of valid comment tags to parse for."
 	print "\t\tValid tags include: TODO and FIXME.\n"
@@ -53,14 +64,16 @@ def printUsage():
 
 
 def printErrorAndExit(msg, errorCode=2):
-	"""Logs an error message to the console, accompanied by info to get help and usage information, and then exits the program.
+	"""Logs an error message to the console, accompanied by info to get help and usage information, 
+	and then exits the program.
 
-	The default error code to exit on is 2 (for command line argument errors). An error code of 1 is usually used for all other errors
+	The default error code to exit on is 2 (for command line argument errors). An error code of 1 is 
+	usually used for all other errors
 	and 0 for no errors (normal termination).
 	"""
 
 	print msg
-	print "ctag.py: run with -h for help and usage information."
+	print "ctag: run with --help for help and usage information."
 	sys.exit(errorCode)
 
 
@@ -76,9 +89,7 @@ def getCommentTags():
 	except IndexError:
 		printErrorAndExit("Error parsing arguments.")
 
-	validCommentTags = ["TODO", "FIXME"]
-
-	return [tag for tag in sys.argv[1][6:].split(",") if tag in validCommentTags]
+	return [tag for tag in sys.argv[1][6:].split(",") if tag in gCommentTags]
 
 
 def getOutputMode():
@@ -124,7 +135,8 @@ def getOutputFileHandle(outMode):
 
 
 def getSourcePathFiles(outMode):
-	"""Searches the path recursively if path is a directory and returns a list of all the source files that will be parsed.
+	"""Searches the path recursively if path is a directory and returns a list of all the source files that 
+	will be parsed.
 
 	The output mode (outMode) determines which command line argument contains the path.
 	"""
@@ -146,10 +158,9 @@ def getSourcePathFiles(outMode):
 	if os.path.isfile(srcPath):
 		fileList.append(srcPath)
 	else:
-		fileExts = [".h", ".hpp", ".c", ".cpp", ".cc", ".cpp", ".m", ".mm", ".cs", ".py", ".lua", ".js"]
-    	for root, dirs, files in os.walk(srcPath):
-        	# extend is faster than using '+=' since it does not create a new concatenated list each time
-        	fileList.extend([os.path.join(root, f) for f in files if os.path.splitext(f)[1] in fileExts])
+		for root, dirs, files in os.walk(srcPath):
+			# Extend is faster than using '+=' since it does not create a new concatenated list each time.
+			fileList.extend([os.path.join(root, f) for f in files if os.path.splitext(f)[1] in gFileExtensions])
 		
 	return fileList
 
@@ -172,7 +183,7 @@ def parseFile(srcFileHandle, cTags):
 
 	"""
 
-	# strip away directory from file name if it exists
+	# Strip away directory from file name if it exists.
 	srcFileName = srcFileHandle.name.rsplit("/", 1)[-1]
 
 	lineNum = 0
@@ -182,16 +193,25 @@ def parseFile(srcFileHandle, cTags):
 	for line in lineIter:
 		lineNum += 1
 
-		# strip away leading characters up until start of comment if comment succeeds a line of code
-		# include all comment types from all supported languages
-		idx_list = [line.find(t) for t in ["//", "/*", "#", "'''", '"""', "--", "--[["]]
+		# Strip away leading characters up until start of comment if comment succeeds a line of code.
+		# Include all comment types from all supported languages.
+		idx_list = [line.find(t) for t in gCommentOpeners]
 		idx = max(idx_list)
 
-		# line contains a comment; output to the given stream if it is also tagged
+		# Line contains a comment; output to the given stream if it is also tagged
+		# while stripping away the comment delimiters and leading/trailing whitespace.
 		if idx > -1:
 			line = line[idx:]
 			tagsIter = (tag for tag in cTags if tag in line)
 			for t in tagsIter:
+				while not line.startswith(t):
+					line = line.lstrip(gCommentChars)
+					line = line.lstrip()
+
+				while line.endswith(tuple(gCommentClosers)):
+					line = line.rstrip(gCommentChars)
+					line = line.rstrip()
+
 				sys.stdout.write("[{0}|line:{1}] {2}\n".format(srcFileName, lineNum, line))
 				linesWritten += 1
 
@@ -209,7 +229,7 @@ if __name__ == "__main__":
 		if sys.argv[1] in ["-h", "--help", "-?"]:
 			printUsage()
 	except IndexError:
-		printErrorAndExit("Unknonwn or invalid arguments.")
+		printErrorAndExit("ctag: Unknonwn or invalid arguments.")
 
 	commentTags = getCommentTags()
 	outputMode = getOutputMode()
@@ -219,7 +239,8 @@ if __name__ == "__main__":
 	if outputMode == 1:
 		sys.stdout = outputFileHandle
 	
-	sys.__stdout__.write("ctag.py: Parsing with tags {0}, with output to {1}...\n\n".format(commentTags, sys.stdout.name))
+	sys.__stdout__.write("\n")
+	sys.__stdout__.write("ctag: Parsing with tags {0}, with output to {1}...\n\n".format(commentTags, sys.stdout.name))
 
 	for srcFile in sourceFiles:
 		parseFile(openSourceFile(srcFile), commentTags)
@@ -228,4 +249,5 @@ if __name__ == "__main__":
 		outputFileHandle.close()
 		sys.stdout = sys.__stdout__
 
-	print "ctag.py: Done.\n"
+	print "ctag: Done.\n"
+
