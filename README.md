@@ -13,10 +13,17 @@ Parses the source file 'testfile.cpp' for comments tagged with TODO and FIXME, d
 
 	$ ./ctag.py -tags=TODO,FIXME -console testfile.cpp
 	
-	[testfile.cpp|line:7] // TODO: Do something here.
-	[testfile.cpp|line:11] /* FIXME: Needs a newline. */
-	[testfile.cpp|line:13] // FIXME: This loop never runs.
-	[testfile.cpp|line:19] // TODO: Clear away some space...
+	[testfile.cpp|line:7] TODO: Do something here.
+	[testfile.cpp|line:11] FIXME: Needs a newline.
+	[testfile.cpp|line:13] FIXME: This loop never runs.
+	[testfile.cpp|line:18] TODO: Add space between slashes and tag.
+	[testfile.cpp|line:20] TODO: Clear away some space...
+	[testfile.cpp|line:24] TODO: This block of code is useless.
+	
+	SUMMARY
+	-------
+	FIXME items: 2 in 1 file.
+	TODO items: 4 in 1 file.
 	
 Recursively scans the current working directory for all source code files and summarizes comments tagged with TODO, logging the results to 
 the file 'summarized.txt'.

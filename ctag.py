@@ -193,6 +193,11 @@ def parseFile(srcFileHandle, tags, counts):
 	# Strip away directory from file name if it exists.
 	srcFileName = srcFileHandle.name.rsplit("/", 1)[-1]
 
+	# If the path was given as the current working directory (which would contain this script), 
+	# don't parse this file as it will stall execution.
+	if srcFileName == os.path.basename(__file__): 
+		return
+
 	lineNum = 0
 	linesWritten = 0
 	prevCounts = deepcopy(counts)
@@ -249,7 +254,7 @@ if __name__ == "__main__":
 		printErrorAndExit("ctag: Unknonwn or invalid arguments.")
 
 	commentTags = getCommentTags()
-
+	
 	summaryCounts = {}
 	for tag in commentTags:
 		# Counts list: first item is the total # of occurrences of the tag; 
