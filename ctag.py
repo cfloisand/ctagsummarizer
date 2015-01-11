@@ -4,18 +4,23 @@
 # Comment Tag Summarizer
 #
 # Author:	Christian Floisand
-# Version:  1.0
+# Version:  1.1
 # Created:  2014/08/12
 # Modified: 2015/01/10
 #
 # Parses source files for comments tagged with TODO and/or FIXME and displays the comments in the console 
-# and/or creates a file listing them all for easy reference. Though most IDEs will highlight these tags or include 
+# or a file listing them all for easy reference. Though most IDEs will highlight these tags or include 
 # them in a file's section summary or table of contents (e.g. Xcode), this script consolidates all of these 
 # tagged comments together in one place that can easily be referred to so they are not forgotten or overlooked. 
 # Moreover, the script can be included in build phases so that the file containing all of the tagged comments 
 # stays updated every time a new build is made.
 #
-# At this time, only the line containing the TODO or FIXME tag will be logged.
+# At this time, only the line containing the TODO or FIXME tag will be displayed. In addition, tags that 
+# appear within comment blocks will not be found.
+# i.e. /*
+#		TODO: ...
+#		*/
+# The tag must appear on the same line as the opening block comment.
 #
 # LICENSE
 # Copyright (C) 2014 Christian Floisand
@@ -33,6 +38,7 @@
 #
 
 import os, sys, string
+from copy import deepcopy
 
 ## Globals
 gFileExtensions = [".h", ".hpp", ".c", ".cpp", ".cc", ".cpp", ".m", ".mm", ".cs", ".py", ".lua", ".js"]
@@ -47,9 +53,9 @@ def printUsage():
 	
 	"""
 
-	print "\n====Comment Tag Summarizer, Version 1.0===="
+	print "\n====Comment Tag Summarizer, Version 1.1===="
 	print "Searches source files for comments identified by TODO or FIXME tags and displays them"
-	print "in the console and/or writes them to a specified file.\n"
+	print "in the console or writes them to a specified file.\n"
 	print "usage: ctag.py -tags=<tags...> [-console | -file=<filename>] path"
 	print "\t-tags\n\t\tA comma-separated list of valid comment tags to parse for."
 	print "\t\tValid tags include: TODO and FIXME.\n"
@@ -85,9 +91,9 @@ def getCommentTags():
 
 	try:
 		if not sys.argv[1][0:6] == "-tags=":
-			printErrorAndExit("Error parsing arguments.")
+			printErrorAndExit("ctag: Error parsing arguments.")
 	except IndexError:
-		printErrorAndExit("Error parsing arguments.")
+		printErrorAndExit("ctag: Error parsing arguments.")
 
 	return [tag for tag in sys.argv[1][6:].split(",") if tag in gCommentTags]
 
@@ -111,7 +117,7 @@ def getOutputMode():
 		else:
 			return -1
 	except IndexError:
-		printErrorAndExit("Error parsing arguments.")
+		printErrorAndExit("ctag: Error parsing arguments.")
 
 
 def getOutputFileHandle(outMode):
@@ -127,9 +133,9 @@ def getOutputFileHandle(outMode):
 		outFileName = sys.argv[2][6:]
 		outFileHandle = open(outFileName, "w")
 	except IndexError:
-		printErrorAndExit("Error parsing arguments.")
+		printErrorAndExit("ctag: Error parsing arguments.")
 	except IOError:
-		printErrorAndExit("Failed to open file " + outFileName)
+		printErrorAndExit("ctag: Failed to open file " + outFileName)
 
 	return outFileHandle
 
@@ -149,7 +155,7 @@ def getSourcePathFiles(outMode):
 	try:
 		srcPath = sys.argv[argIndex]
 	except IndexError:
-		printErrorAndExit("Error parsing arguments.")
+		printErrorAndExit("ctag: Error parsing arguments.")
 
 	if srcPath == ".":
 		srcPath = os.getcwd()
@@ -173,13 +179,14 @@ def openSourceFile(fileName):
 	try:
 		srcFileHandle = open(fileName, "r")
 	except IOError:
-		printErrorAndExit("Failed to open source file " + fileName)
+		printErrorAndExit("ctag: Failed to open source file " + fileName)
 
 	return srcFileHandle
 
 
-def parseFile(srcFileHandle, cTags):
+def parseFile(srcFileHandle, tags, counts):
 	"""Parses the given file for comments identified by the given tags and writes them out to the specified stream.
+	The summary counts for each tag found are also updated.
 
 	"""
 
@@ -188,6 +195,8 @@ def parseFile(srcFileHandle, cTags):
 
 	lineNum = 0
 	linesWritten = 0
+	prevCounts = deepcopy(counts)
+
 	lineIter = (l.strip() for l in srcFileHandle)
 
 	for line in lineIter:
@@ -195,14 +204,14 @@ def parseFile(srcFileHandle, cTags):
 
 		# Strip away leading characters up until start of comment if comment succeeds a line of code.
 		# Include all comment types from all supported languages.
-		idx_list = [line.find(t) for t in gCommentOpeners]
-		idx = max(idx_list)
+		idxList = [line.find(t) for t in gCommentOpeners]
+		idx = max(idxList)
 
 		# Line contains a comment; output to the given stream if it is also tagged
 		# while stripping away the comment delimiters and leading/trailing whitespace.
 		if idx > -1:
 			line = line[idx:]
-			tagsIter = (tag for tag in cTags if tag in line)
+			tagsIter = (tag for tag in tags if tag in line)
 			for t in tagsIter:
 				while not line.startswith(t):
 					line = line.lstrip(gCommentChars)
@@ -214,11 +223,19 @@ def parseFile(srcFileHandle, cTags):
 
 				sys.stdout.write("[{0}|line:{1}] {2}\n".format(srcFileName, lineNum, line))
 				linesWritten += 1
+				
+				# Increment total count of occurrences for tag.
+				counts[t][0] += 1
 
 	sys.stdout.flush()
 	if linesWritten > 0:
 		sys.stdout.write("\n")
-
+	
+		# Update file counts for each tag.
+		for k, v in counts.iteritems():
+			if v[0] > prevCounts[k][0]:
+				v[1] += 1
+	
 	srcFileHandle.close()
 
 
@@ -232,6 +249,13 @@ if __name__ == "__main__":
 		printErrorAndExit("ctag: Unknonwn or invalid arguments.")
 
 	commentTags = getCommentTags()
+
+	summaryCounts = {}
+	for tag in commentTags:
+		# Counts list: first item is the total # of occurrences of the tag; 
+		# the second item is the number of files the tag appears in.
+		summaryCounts[tag] = [0,0]
+	
 	outputMode = getOutputMode()
 	outputFileHandle = getOutputFileHandle(outputMode)
 	sourceFiles = getSourcePathFiles(outputMode)
@@ -243,11 +267,16 @@ if __name__ == "__main__":
 	sys.__stdout__.write("ctag: Parsing with tags {0}, with output to {1}...\n\n".format(commentTags, sys.stdout.name))
 
 	for srcFile in sourceFiles:
-		parseFile(openSourceFile(srcFile), commentTags)
+		parseFile(openSourceFile(srcFile), commentTags, summaryCounts)
+	
+	sys.stdout.write("SUMMARY\n")
+	sys.stdout.write("-------\n")
+	for k, v in summaryCounts.iteritems():
+		sys.stdout.write("{0} items: {1} in {2} file{3}.\n".format(k, v[0], v[1], 's' if v[1] > 1 else ''))
 
 	if not outputFileHandle == None:
 		outputFileHandle.close()
 		sys.stdout = sys.__stdout__
-
-	print "ctag: Done.\n"
+	
+	print "\nctag: Done.\n"
 
