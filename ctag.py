@@ -6,7 +6,7 @@
 # Author:	Christian Floisand
 # Version:  1.1
 # Created:  2014/08/12
-# Modified: 2015/01/10
+# Modified: 2015/01/11
 #
 # Parses source files for comments tagged with TODO and/or FIXME and displays the comments in the console 
 # or a file listing them all for easy reference. Though most IDEs will highlight these tags or include 
@@ -277,7 +277,7 @@ if __name__ == "__main__":
 	sys.stdout.write("SUMMARY\n")
 	sys.stdout.write("-------\n")
 	for k, v in summaryCounts.iteritems():
-		sys.stdout.write("{0} items: {1} in {2} file{3}.\n".format(k, v[0], v[1], 's' if v[1] > 1 else ''))
+		sys.stdout.write("{0} items: {1} in {2} file{3}.\n".format(k, v[0], v[1], '' if v[1] == 1 else 's'))
 
 	if not outputFileHandle == None:
 		outputFileHandle.close()
